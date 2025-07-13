@@ -15,6 +15,17 @@ TARGET_DISK="/dev/nvme0n1"  # Change this to match your disk
 SWAP_SIZE="16G"            # Swap size (adjust as needed)
 INSTALL_NVIDIA=true         # Set to false for AMD/Intel systems
 
+# Auto-disable NVIDIA in VirtualBox
+if command -v dmidecode >/dev/null 2>&1; then
+    IS_VBOX=$(grep -q "VirtualBox" /proc/scsi/scsi 2>/dev/null && echo 1 || dmidecode | grep -qi "VirtualBox" && echo 1 || echo 0)
+else
+    IS_VBOX=$(grep -q "VirtualBox" /proc/scsi/scsi 2>/dev/null && echo 1 || echo 0)
+fi
+if [ "$IS_VBOX" -eq 1 ]; then
+    echo "VirtualBox detected: disabling NVIDIA package installation."
+    INSTALL_NVIDIA=false
+fi
+
 # Detect partition suffix (p for NVMe, nothing for SATA)
 if [[ "$TARGET_DISK" == *nvme* ]]; then
     PART_SUFFIX="p"
