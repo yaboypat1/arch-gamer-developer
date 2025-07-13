@@ -1,0 +1,23 @@
+# Ignore swap and backup files
+*~
+*.swp
+*.swo
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore logs
+*.log
+
+# Ignore compiled binaries
+*.o
+*.out
+*.bin
+
+# Ignore archives
+*.tar
+*.gz
+*.zip
+*.7z
+*.rar
