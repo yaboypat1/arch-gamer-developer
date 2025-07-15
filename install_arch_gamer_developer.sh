@@ -15,6 +15,11 @@ TARGET_DISK="/dev/nvme0n1"  # Change this to match your disk
 SWAP_SIZE="16G"            # Swap size (adjust as needed)
 INSTALL_NVIDIA=true         # Set to false for AMD/Intel systems
 
+# Warn if /mnt is already mounted
+if mount | grep -qE " on /mnt( |$)"; then
+    echo "⚠️  Warning: /mnt is already mounted. If this is from a previous install attempt, consider unmounting first (umount -A --recursive /mnt)."
+fi
+
 # Auto-disable NVIDIA in VirtualBox
 if command -v dmidecode >/dev/null 2>&1; then
     IS_VBOX=$(grep -q "VirtualBox" /proc/scsi/scsi 2>/dev/null && echo 1 || dmidecode | grep -qi "VirtualBox" && echo 1 || echo 0)
@@ -88,7 +93,12 @@ sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
 pacman -Syy  # Refresh package databases
 
 # === DISK PARTITIONING ===
-echo "💽 Partitioning disk..."
+echo "💽 Preparing disk for partitioning..."
+# Unmount all partitions from /mnt and its submounts (ignore errors)
+umount -A --recursive /mnt 2>/dev/null || true
+# Try to turn off swap on the target disk (ignore errors)
+swapoff "${TARGET_DISK}${PART_SUFFIX}2" 2>/dev/null || true
+
 # Create GPT partition table
 parted -s $TARGET_DISK mklabel gpt || check_success "Partition table creation failed"
 
