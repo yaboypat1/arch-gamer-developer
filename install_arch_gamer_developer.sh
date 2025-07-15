@@ -99,12 +99,27 @@ umount -A --recursive /mnt 2>/dev/null || true
 # Try to turn off swap on the target disk (ignore errors)
 swapoff "${TARGET_DISK}${PART_SUFFIX}2" 2>/dev/null || true
 
-# Create GPT partition table
-parted -s $TARGET_DISK mklabel gpt || check_success "Partition table creation failed"
+# Detect BIOS or UEFI and set correct disk label
+if [ -d /sys/firmware/efi/efivars ]; then
+    echo "UEFI detected: setting disk label to GPT."
+    parted -s $TARGET_DISK mklabel gpt || check_success "Partition table creation failed"
+    BOOT_MODE="UEFI"
+else
+    echo "BIOS/Legacy detected: setting disk label to msdos (MBR)."
+    parted -s $TARGET_DISK mklabel msdos || check_success "Partition table creation failed"
+    BOOT_MODE="BIOS"
+fi
 
-# Create EFI partition (550MB)
-parted -s $TARGET_DISK mkpart primary fat32 1MiB 551MiB || check_success "EFI partition failed"
-parted -s $TARGET_DISK set 1 esp on || check_success "ESP flag failed"
+# Create EFI partition (550MB) for UEFI, or BIOS boot partition for BIOS
+if [ "$BOOT_MODE" = "UEFI" ]; then
+    parted -s $TARGET_DISK mkpart primary fat32 1MiB 551MiB || check_success "EFI partition failed"
+    parted -s $TARGET_DISK set 1 esp on || check_success "ESP flag failed"
+    PART_START=2
+else
+    parted -s $TARGET_DISK mkpart primary ext4 1MiB 551MiB || check_success "BIOS boot partition failed"
+    parted -s $TARGET_DISK set 1 boot on || check_success "Boot flag failed"
+    PART_START=2
+fi
 
 # Create swap partition
 SWAP_END_MIB=$((551 + SWAP_SIZE_MIB))
@@ -306,13 +321,7 @@ else
         echo "⚠️  Warning: TARGET_DISK ($TARGET_DISK) looks like a partition, not a disk. Please set it to the disk (e.g., /dev/sda, /dev/vda, /dev/nvme0n1)."
         exit 1
     fi
-    # Ensure disk is MBR-initialized
-    PARTED_LABEL=$(parted -s $TARGET_DISK print | grep "Partition Table" | awk '{print $3}')
-    if [ "$PARTED_LABEL" != "msdos" ]; then
-        echo "Setting disk label to msdos for BIOS/MBR boot..."
-        parted -s $TARGET_DISK mklabel msdos
-    fi
-    arch-chroot /mnt pacman -S --noconfirm grub os-prober
+        arch-chroot /mnt pacman -S --noconfirm grub os-prober
     arch-chroot /mnt grub-install --target=i386-pc --recheck $TARGET_DISK
     arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
     echo "GRUB installation complete."
