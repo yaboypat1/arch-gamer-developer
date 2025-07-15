@@ -345,6 +345,8 @@ arch-chroot /mnt systemctl enable bluetooth
 arch-chroot /mnt systemctl enable fstrim.timer
 
 # Install additional utilities from pacman
-arch-chroot /mnt pacman -S --noconfirm neofetch
+arch-chroot /mnt pacman -S --noconfirm fastfetch
+# Provide neofetch alias for familiarity
+arch-chroot /mnt bash -c "echo 'alias neofetch=\'fastfetch\'' >> /etc/bash.bashrc"
 
 echo "✅ Installation complete! You can now reboot."
